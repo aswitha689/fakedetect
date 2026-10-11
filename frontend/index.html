@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Explainable AI Fake News Detection</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --fake: #dc2626;
+      --fake-bg: #fef2f2;
+      --real: #16a34a;
+      --real-bg: #f0fdf4;
+      --warn: #d97706;
+      --warn-bg: #fffbeb;
+      --radius: 8px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 24px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    h1 { font-size: 1.6rem; font-weight: 700; }
+    p.subtitle { color: var(--text-muted); font-size: 0.9rem; }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .card h2 { font-size: 1.1rem; margin-bottom: 12px; }
+    .settings-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #f1f5f9;
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: var(--radius);
+      font-size: 0.85rem;
+      width: 100%;
+      margin-bottom: 16px;
+    }
+    .settings-bar input {
+      flex: 1;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 0.85rem;
+    }
+    .settings-bar button {
+      padding: 6px 12px;
+      font-size: 0.82rem;
+    }
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 4px;
+    }
+    .dot-green { background: #22c55e; }
+    .dot-yellow { background: #f59e0b; }
+    textarea {
+      width: 100%;
+      height: 100px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.95rem;
+      resize: vertical;
+      font-family: inherit;
+    }
+    textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
+    .btn-group { display: flex; gap: 10px; margin-top: 12px; align-items: center; flex-wrap: wrap; }
+    button {
+      padding: 9px 18px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    button:hover { background: var(--primary-hover); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    button.btn-outline {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    button.btn-outline:hover { background: var(--bg); }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      letter-spacing: 0.5px;
+    }
+    .badge-fake { background: var(--fake-bg); color: var(--fake); border: 1px solid #fecaca; }
+    .badge-real { background: var(--real-bg); color: var(--real); border: 1px solid #bbf7d0; }
+    .badge-warn { background: var(--warn-bg); color: var(--warn); border: 1px solid #fde68a; }
+    .warning-banner {
+      background: var(--warn-bg);
+      color: var(--warn);
+      border: 1px solid #fde68a;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 0.88rem;
+      font-weight: 500;
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .refuted-banner {
+      background: var(--fake-bg);
+      color: var(--fake);
+      border: 1px solid #fecaca;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 0.88rem;
+      font-weight: 600;
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .progress-wrap { margin: 14px 0 6px 0; }
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .progress-bar {
+      height: 10px;
+      background: #e2e8f0;
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+    .progress-fill { height: 100%; transition: width 0.3s ease; }
+    .highlighted-box {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      font-size: 0.95rem;
+      line-height: 1.7;
+    }
+    .highlight {
+      padding: 2px 4px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+    .legend {
+      display: flex;
+      gap: 16px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+    .tag-container { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .tag {
+      font-size: 0.78rem;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+      border: 1px solid var(--border);
+    }
+    .fact-item {
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 8px;
+      font-size: 0.88rem;
+      background: #fcfdfe;
+    }
+    .fact-item .publisher { font-weight: 600; color: var(--text-muted); font-size: 0.8rem; margin-bottom: 4px; }
+    .fact-item a { color: var(--primary); text-decoration: none; }
+    .fact-item a:hover { text-decoration: underline; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--text-muted); background: #f8fafc; }
+    .btn-delete {
+      background: #ef4444;
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .btn-delete:hover { background: #dc2626; }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-box { background: var(--fake-bg); color: var(--fake); border: 1px solid #fecaca; padding: 10px; border-radius: var(--radius); margin-top: 10px; font-size: 0.88rem; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <div class="header-row">
+    <div>
+      <h1>Explainable AI Fake News Detection</h1>
+      <p class="subtitle">ML Classification + LIME Explainability + Google Fact Check Tools API Grounding</p>
+    </div>
+  </div>
+
+  <!-- Fact Check API Key Settings -->
+  <div class="settings-bar">
+    <span id="apiStatusIndicator"><span class="status-dot dot-yellow"></span>Checking Key...</span>
+    <input type="password" id="apiKeyInput" placeholder="Enter Google Fact Check API Key...">
+    <button onclick="saveApiKey()">Save Key</button>
+  </div>
+
+  <!-- Input Section -->
+  <div class="card">
+    <h2>Analyze Statement</h2>
+    <textarea id="textInput" placeholder="Enter claim or news statement to analyze (e.g., 'aswitha is president of india')..."></textarea>
+    <div class="btn-group">
+      <button id="analyzeBtn" onclick="analyzeStatement()">
+        <span id="btnText">Analyze</span>
+      </button>
+      <button class="btn-outline" onclick="loadSample(1)">Sample Fake (Obama)</button>
+      <button class="btn-outline" onclick="loadSample(2)">Sample Real (Economy)</button>
+      <button class="btn-outline" onclick="loadSample(3)">Sample False Claim (President)</button>
+    </div>
+    <div id="errorBox" class="error-box hidden"></div>
+  </div>
+
+  <!-- Results Section -->
+  <div id="resultCard" class="card hidden">
+    <h2>Analysis Result</h2>
+    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+      <span id="labelBadge" class="badge">--</span>
+      <span id="statusBadge" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Status: --</span>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-label">
+        <span>Confidence</span>
+        <span id="confidenceValue">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div id="confidenceFill" class="progress-fill" style="width: 0%;"></div>
+      </div>
+    </div>
+
+    <div id="reviewWarning" class="warning-banner hidden">
+      <span>⚠️</span>
+      <span><strong>Needs Review:</strong> Confidence is below 60%. Flagged for human review.</span>
+    </div>
+
+    <div id="refutedWarning" class="refuted-banner hidden">
+      <span>🛑</span>
+      <span><strong>Fact-Check Refuted:</strong> This statement is directly contradicted by verified external facts.</span>
+    </div>
+
+    <!-- Explanation Section -->
+    <div style="margin-top: 20px;">
+      <h3 style="font-size: 0.95rem; margin-bottom: 6px;">LIME Word Attribution</h3>
+      <div id="highlightedText" class="highlighted-box"></div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background: rgba(220, 38, 38, 0.7);"></div> Pushes FAKE</div>
+        <div class="legend-item"><div class="legend-dot" style="background: rgba(220, 38, 38, 0.15); border: 1px solid var(--border);"></div> Neutral / Low Weight</div>
+        <div class="legend-item"><div class="legend-dot" style="background: rgba(22, 163, 74, 0.7);"></div> Pushes REAL</div>
+      </div>
+      <div id="featureTags" class="tag-container"></div>
+    </div>
+
+    <!-- Fact Checking Section -->
+    <div id="factCheckSection" style="margin-top: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <h3 style="font-size: 0.95rem;">Knowledge Grounding & Fact-Check</h3>
+        <span id="factCheckSource" style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600;"></span>
+      </div>
+      <div id="factCheckList"></div>
+    </div>
+
+    <!-- Feedback Section -->
+    <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);">
+      <h3 style="font-size: 0.9rem; margin-bottom: 8px;">User Feedback Loop</h3>
+      <div id="feedbackControls" style="display: flex; gap: 8px; align-items: center;">
+        <button class="btn-outline" onclick="submitFeedback('REAL')">👍 Real</button>
+        <button class="btn-outline" onclick="submitFeedback('FAKE')">👎 Fake</button>
+        <input type="text" id="feedbackComment" placeholder="Optional comment" style="padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.85rem; flex: 1;">
+      </div>
+      <div id="feedbackMsg" style="font-size: 0.85rem; color: var(--real); margin-top: 6px;" class="hidden">Feedback saved!</div>
+    </div>
+  </div>
+
+  <!-- History Section -->
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <h2>History (Last 20)</h2>
+      <button class="btn-outline" style="padding: 4px 10px; font-size: 0.8rem;" onclick="loadHistory()">Refresh</button>
+    </div>
+    <div style="overflow-x: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Statement</th>
+            <th>Label</th>
+            <th>Confidence</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="historyBody">
+          <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No statements analyzed yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.port === '8000' ? '' : 'http://127.0.0.1:8000';
+    let currentPredictionId = null;
+
+    const samples = {
+      1: "Barack Obama was not born in the United States and has a fraudulent birth certificate",
+      2: "The federal reserve raised interest rates to combat inflation according to official economic data",
+      3: "aswitha is president of india"
+    };
+
+    function loadSample(num) {
+      document.getElementById('textInput').value = samples[num];
+    }
+
+    async function checkApiKeyStatus() {
+      try {
+        const res = await fetch(`${API_BASE}/settings/api-key`);
+        const data = await res.json();
+        const indicator = document.getElementById('apiStatusIndicator');
+        if (data.configured) {
+          indicator.innerHTML = '<span class="status-dot dot-green"></span>Google Fact Check API Active';
+        } else {
+          indicator.innerHTML = '<span class="status-dot dot-yellow"></span>Fact Check API Key Not Set (Enter Key &rarr;)';
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function saveApiKey() {
+      const key = document.getElementById('apiKeyInput').value.trim();
+      if (!key) return alert('Please enter an API key');
+      try {
+        const res = await fetch(`${API_BASE}/settings/api-key`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ api_key: key })
+        });
+        if (res.ok) {
+          alert('API Key saved! Every statement will now query Google Fact Check API.');
+          document.getElementById('apiKeyInput').value = '';
+          checkApiKeyStatus();
+        }
+      } catch (e) {
+        alert('Failed to save API key');
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    function highlightText(text, explanations) {
+      if (!explanations || explanations.length === 0) return escapeHtml(text);
+      const maxWeight = Math.max(...explanations.map(e => Math.abs(e.weight)), 0.01);
+      const expMap = new Map();
+
+      for (const item of explanations) {
+        const norm = item.word.toLowerCase();
+        const ratio = Math.min(Math.max(Math.abs(item.weight) / maxWeight, 0.25), 0.85);
+        const color = item.direction === 'FAKE'
+          ? `rgba(220, 38, 38, ${ratio})`
+          : `rgba(22, 163, 74, ${ratio})`;
+        const textColor = ratio > 0.6 ? '#fff' : 'inherit';
+        expMap.set(norm, { color, textColor, item });
+      }
+
+      return text.replace(/\b[\w'-]+\b/g, (match) => {
+        const entry = expMap.get(match.toLowerCase());
+        if (entry) {
+          return `<span class="highlight" style="background-color: ${entry.color}; color: ${entry.textColor};" title="${entry.item.direction} (weight: ${entry.item.weight})">${escapeHtml(match)}</span>`;
+        }
+        return escapeHtml(match);
+      });
+    }
+
+    async function analyzeStatement() {
+      const text = document.getElementById('textInput').value.trim();
+      const errBox = document.getElementById('errorBox');
+      const btn = document.getElementById('analyzeBtn');
+      const btnText = document.getElementById('btnText');
+      errBox.classList.add('hidden');
+
+      if (!text) {
+        errBox.textContent = 'Please enter statement text.';
+        errBox.classList.remove('hidden');
+        return;
+      }
+
+      btn.disabled = true;
+      btnText.innerHTML = '<span class="spinner"></span> Analyzing...';
+
+      try {
+        const res = await fetch(`${API_BASE}/predict`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || 'Failed to analyze text.');
+        }
+
+        const data = await res.json();
+        renderResult(text, data);
+        loadHistory();
+      } catch (err) {
+        errBox.textContent = err.message;
+        errBox.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btnText.textContent = 'Analyze';
+      }
+    }
+
+    function renderResult(originalText, data) {
+      currentPredictionId = data.prediction_id;
+      const card = document.getElementById('resultCard');
+      card.classList.remove('hidden');
+
+      const labelBadge = document.getElementById('labelBadge');
+      const statusBadge = document.getElementById('statusBadge');
+      const reviewWarning = document.getElementById('reviewWarning');
+      const refutedWarning = document.getElementById('refutedWarning');
+
+      reviewWarning.classList.add('hidden');
+      refutedWarning.classList.add('hidden');
+
+      if (data.status === 'Fact-Check Verified') {
+        labelBadge.textContent = 'REAL (Fact-Verified)';
+        labelBadge.className = 'badge badge-real';
+      } else if (data.status === 'Fact-Check Refuted') {
+        labelBadge.textContent = 'FAKE (Fact-Checked)';
+        labelBadge.className = 'badge badge-fake';
+        refutedWarning.classList.remove('hidden');
+      } else if (data.status === 'Needs Review') {
+        labelBadge.textContent = 'NEEDS REVIEW';
+        labelBadge.className = 'badge badge-warn';
+        reviewWarning.classList.remove('hidden');
+      } else {
+        labelBadge.textContent = data.label;
+        labelBadge.className = 'badge ' + (data.label === 'FAKE' ? 'badge-fake' : 'badge-real');
+      }
+
+      statusBadge.textContent = `Status: ${data.status}`;
+
+      // Confidence Bar
+      const pct = Math.round(data.confidence * 100);
+      document.getElementById('confidenceValue').textContent = `${pct}%`;
+      const fill = document.getElementById('confidenceFill');
+      fill.style.width = `${pct}%`;
+      fill.style.background = (data.label === 'FAKE' || data.status === 'Fact-Check Refuted') ? 'var(--fake)' : (data.status === 'Needs Review' ? 'var(--warn)' : 'var(--real)');
+
+      // Highlighted Text
+      document.getElementById('highlightedText').innerHTML = highlightText(originalText, data.explanation);
+
+      // Feature Tags
+      const tagContainer = document.getElementById('featureTags');
+      tagContainer.innerHTML = '';
+      (data.explanation || []).forEach(e => {
+        const span = document.createElement('span');
+        span.className = 'tag';
+        const color = e.direction === 'FAKE' ? 'var(--fake)' : 'var(--real)';
+        span.style.color = color;
+        span.textContent = `${e.word} (${e.weight > 0 ? '+' : ''}${e.weight})`;
+        tagContainer.appendChild(span);
+      });
+
+      // Fact Check
+      const fcSource = document.getElementById('factCheckSource');
+      const fcList = document.getElementById('factCheckList');
+      fcList.innerHTML = '';
+
+      fcSource.textContent = data.grounding?.source ? `Source: ${data.grounding.source}` : '';
+
+      const matches = data.grounding?.matches || [];
+      if (matches.length > 0) {
+        matches.forEach(m => {
+          const div = document.createElement('div');
+          div.className = 'fact-item';
+          const matchBadge = m.is_direct_match
+            ? '<span style="font-size: 0.72rem; background: #fee2e2; color: #dc2626; padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-left: 6px;">Direct Claim Match</span>'
+            : '<span style="font-size: 0.72rem; background: #f1f5f9; color: #64748b; padding: 2px 6px; border-radius: 4px; font-weight: 500; margin-left: 6px;">Related Fact-Check</span>';
+
+          div.innerHTML = `
+            <div class="publisher">${escapeHtml(m.publisher || 'Fact-Checker')}${matchBadge}</div>
+            <div style="font-weight: 600; margin-bottom: 4px;">&ldquo;${escapeHtml(m.claim)}&rdquo;</div>
+            <div style="color: var(--text-muted); font-size: 0.85rem;">Official Rating: <strong style="color: #0f172a;">${escapeHtml(m.rating || 'N/A')}</strong></div>
+            ${m.url ? `<div style="margin-top: 6px;"><a href="${escapeHtml(m.url)}" target="_blank" rel="noopener">Read Full Fact-Check Article &rarr;</a></div>` : ''}
+          `;
+          fcList.appendChild(div);
+        });
+      } else {
+        const div = document.createElement('div');
+        div.className = 'fact-item';
+        div.style.color = 'var(--text-muted)';
+        div.textContent = 'Google Fact Check API searched: No fact-check debunking articles found for this statement.';
+        fcList.appendChild(div);
+      }
+
+      // Reset feedback msg
+      document.getElementById('feedbackMsg').classList.add('hidden');
+      document.getElementById('feedbackComment').value = '';
+    }
+
+    async function submitFeedback(userLabel) {
+      if (!currentPredictionId) return;
+      const comment = document.getElementById('feedbackComment').value.trim();
+      try {
+        const res = await fetch(`${API_BASE}/feedback`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prediction_id: currentPredictionId,
+            user_label: userLabel,
+            comment: comment || null
+          })
+        });
+        if (res.ok) {
+          const msg = document.getElementById('feedbackMsg');
+          msg.textContent = `Feedback recorded as ${userLabel}.`;
+          msg.classList.remove('hidden');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function loadHistory() {
+      try {
+        const res = await fetch(`${API_BASE}/history`);
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('historyBody');
+        tbody.innerHTML = '';
+
+        if (list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No history.</td></tr>';
+          return;
+        }
+
+        list.forEach(row => {
+          const tr = document.createElement('tr');
+          const conf = row.confidence !== null ? `${Math.round(row.confidence * 100)}%` : '--';
+          const labelCls = row.label === 'FAKE' ? 'color: var(--fake); font-weight:600;' : (row.label === 'REAL' ? 'color: var(--real); font-weight:600;' : '');
+          tr.innerHTML = `
+            <td>#${row.id}</td>
+            <td style="max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(row.text)}">${escapeHtml(row.text)}</td>
+            <td style="${labelCls}">${row.label || '--'}</td>
+            <td>${conf}</td>
+            <td><span style="font-size: 0.8rem;">${escapeHtml(row.status || '')}</span></td>
+            <td><button class="btn-delete" onclick="deleteItem(${row.id})">Delete</button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function deleteItem(id) {
+      if (!confirm(`Delete statement #${id}?`)) return;
+      try {
+        const res = await fetch(`${API_BASE}/statement/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          loadHistory();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    window.onload = () => {
+      checkApiKeyStatus();
+      loadHistory();
+    };
+  </script>
+</body>
+</html>
